@@ -1,8 +1,6 @@
 #include "SMC_JXC51.h"
 
-#include "board_support.h"
 #ifdef __USE_IO_EXPAND__
-#include "I2C_interface.h"
 #endif
 
 #ifndef __USE_IO_EXPAND__
@@ -90,9 +88,6 @@ unsigned char *jxc51_out_data = (unsigned char *)&jxc51_expand_out;
 #define JXC51_A_RESET jxc51_expand_in.reset // OUT 2
 #define JXC51_A_SVON jxc51_expand_in.svon   // OUT 1
 
-// #define JXC51_A_IN3 RD0 //START_OUTPUT
-// #define JXC51_A_IN4 RD1 //FUNCTION_OUTPUT
-
 #ifdef __USE_JXC51_B__
 // JXC51_B_input (whitch is jxc_A when not using IO_EXPAND)
 #define JXC51_B_IN0  OUT8
@@ -115,9 +110,6 @@ unsigned char *jxc51_out_data = (unsigned char *)&jxc51_expand_out;
 #define JXC51_A_INP jxc51_expand_out.inp     // IN 6
 #define JXC51_A_SVRE jxc51_expand_out.svre   // IN 7
 #define JXC51_A_ALARM jxc51_expand_out.alarm // IN 8
-
-// #define JXC51_A_OUT3 !RD5  //START_INPUT
-// #define JXC51_A_OUT4 !RD6 //FUNCTION_INPUT
 
 #ifdef __USE_JXC51_B__
 //    JXC51_B output (whitch is jxc_A when not using IO_EXPAND)
@@ -170,7 +162,7 @@ void JXC51_A_READ(void)
             - FLAG_START - start step progress (PS: provide step number at the same time)
             - others     - advance progress until it ends
  */
-static unsigned char JXC51_task_A_step(unsigned char input, uint8_t flag)
+static uint8_t JXC51_task_A_step(uint8_t input, uint8_t flag)
 {
     static enum { step_null = 0,
                   step_ready,
@@ -180,7 +172,7 @@ static unsigned char JXC51_task_A_step(unsigned char input, uint8_t flag)
                   step_waitBUSY,
                   step_end } step_FSM_state;
 
-    unsigned char err = 0;
+    uint8_t err = 0;
     if (flag == FLAG_RESET)
     {
         step_FSM_state = step_ready;
@@ -253,6 +245,7 @@ static unsigned char JXC51_task_A_step(unsigned char input, uint8_t flag)
         else
         {
             //                output = PORTB & 0x1F + JXC51_A_OUT5 * 0x20;
+            jxc51_A_step_finish_flag = 1;
             step_FSM_state = step_end;
             //                JXC51_A_SVON = 0;
         }
@@ -276,7 +269,7 @@ static unsigned char JXC51_task_A_step(unsigned char input, uint8_t flag)
             - FLAG_START - start step progress (PS: provide step number at the same time)
             - others     - advance progress until it ends
  */
-static unsigned char JXC51_task_B_step(unsigned char input, uint8_t flag)
+static uint8_t JXC51_task_B_step(uint8_t input, uint8_t flag)
 {
     static enum { step_null = 0,
                   step_ready,
@@ -286,7 +279,7 @@ static unsigned char JXC51_task_B_step(unsigned char input, uint8_t flag)
                   step_waitBUSY,
                   step_end } step_FSM_state;
 
-    unsigned char err = 0;
+    uint8_t err = 0;
     if (flag == FLAG_RESET)
     {
         step_FSM_state = step_ready;
@@ -359,6 +352,7 @@ static unsigned char JXC51_task_B_step(unsigned char input, uint8_t flag)
         else
         {
             // output = PORTB & 0x1F + JXC51_B_OUT5 * 0x20;
+            jxc51_B_step_finish_flag = 1;
             step_FSM_state = step_end;
             // JXC51_B_SVON = 0;
         }
@@ -381,9 +375,8 @@ static unsigned char JXC51_task_B_step(unsigned char input, uint8_t flag)
             - others     - advance progress until it ends
  */
 #ifdef __USE_JXC51_B__
-static unsigned char JXC51_task_B_setup(unsigned char flag)
+static uint8_t JXC51_task_B_setup(uint8_t flag)
 {
-    // static volatile unsigned char setup_A_flag = 0;
     static enum { setup_null = 0,
                   setup_reset,
                   setup_checkALM,
@@ -449,6 +442,7 @@ static unsigned char JXC51_task_B_setup(unsigned char flag)
         {
             // setup_FSM_state = 0;
             setup_FSM_state = setup_end;
+            jxc51_setup_finish_flag = 1;
         }
         break;
     case setup_end:
@@ -466,7 +460,7 @@ static unsigned char JXC51_task_B_setup(unsigned char flag)
             - others     - advance progress until it ends
 
  */
-static unsigned char JXC51_task_AB_setup(unsigned char flag)
+static uint8_t JXC51_task_AB_setup(uint8_t flag)
 {
     static enum { setup_null = 0,
                   setup_reset,
@@ -534,6 +528,8 @@ static unsigned char JXC51_task_AB_setup(unsigned char flag)
             // setup_FSM_state = 0;
 #ifdef __USE_JXC51_B__
             JXC51_task_B_setup(FLAG_RESET);
+#else
+            jxc51_setup_finish_flag = 1;
 #endif
             setup_FSM_state = setup_end;
         }
@@ -565,7 +561,7 @@ void taskJXC51(void)
 #endif
 }
 
-unsigned char jxc51_init(void)
+uint8_t jxc51_init(void)
 {
     jxc51_A_step_finish_flag = 0;
 #ifdef __USE_JXC51_B__
@@ -580,7 +576,7 @@ unsigned char jxc51_init(void)
     return 0;
 }
 
-unsigned char jxc51_return(void)
+uint8_t jxc51_setup(void)
 {
     jxc51_setup_finish_flag = 0;
     JXC51_task_AB_setup(FLAG_RESET);
@@ -592,9 +588,9 @@ unsigned char jxc51_return(void)
     return 0;
 }
 
-unsigned char jxc51_A_holdRelease(void)
+uint8_t jxc51_A_holdRelease(void)
 {
-    unsigned char output = 0;
+    uint8_t output = 0;
     if (!JXC51_A_HOLD && JXC51_A_BUSY) // if(HOLD = 0 && BUSY == 1)
     {
         JXC51_A_HOLD = 1;
@@ -610,7 +606,7 @@ unsigned char jxc51_A_holdRelease(void)
     return output;
 }
 
-unsigned char jxc51_A_goto(uint8_t step_no)
+uint8_t jxc51_A_goto(uint8_t step_no)
 {
     if (step_no == STEP_REQ_NULL)
     {
@@ -620,6 +616,7 @@ unsigned char jxc51_A_goto(uint8_t step_no)
 
     if (step_no != jxc51_A_stored_step && !JXC51_A_BUSY)
     {
+        jxc51_setup_finish_flag = 0;
         jxc51_A_step_finish_flag = 0;
         jxc51_A_stored_step = step_no;
         JXC51_task_A_step(step_no, FLAG_START);
@@ -633,11 +630,12 @@ unsigned char jxc51_A_goto(uint8_t step_no)
     return 0;
 }
 
-/*
-@name  jxc51_A_position
-@brief renew jxc51_position and return
- */
-unsigned char jxc51_A_position(void)
+uint8_t jxc51_check_setup(void)
+{
+    return jxc51_setup_finish_flag;
+}
+
+uint8_t jxc51_A_position(void)
 {
     static uint8_t jxc51_position;
     jxc51_position = (JXC51_A_OUT2 * 4) + (JXC51_A_OUT1 * 2) + JXC51_A_OUT0;
@@ -645,50 +643,15 @@ unsigned char jxc51_A_position(void)
     return jxc51_position;
 }
 
-unsigned char jxc51_A_checkSTEP(void)
+uint8_t jxc51_A_check_step(void)
 {
-    // step over
-    if (jxc51_A_step_finish_flag == 0)
-    {
-        if (JXC51_A_INP && (jxc51_A_position() == jxc51_A_stored_step))
-        {
-            jxc51_A_step_finish_flag = 1;
-        }
-        else
-        {
-        }
-    }
-    else
-    {
-    }
-
     return jxc51_A_step_finish_flag;
 }
 
-unsigned char jxc51_A_checkSETUP(void)
-{
-    // setup over
-    if (jxc51_setup_finish_flag == 0)
-    {
-        if (JXC51_A_INP && (jxc51_A_position() == 0))
-        {
-            jxc51_setup_finish_flag = 1;
-        }
-        else
-        {
-        }
-    }
-    else
-    {
-    }
-
-    return jxc51_setup_finish_flag;
-}
-
 #ifdef __USE_JXC51_B__
-unsigned char jxc51_B_holdRelease(void)
+uint8_t jxc51_B_holdRelease(void)
 {
-    unsigned char output = 0;
+    uint8_t output = 0;
     if (JXC51_B_HOLD == 0 && !JXC51_B_BUSY == 0) // if(HOLD = 0 && BUSY == 1)
     {
         JXC51_B_HOLD = 1;
@@ -704,7 +667,7 @@ unsigned char jxc51_B_holdRelease(void)
     return output;
 }
 
-unsigned char jxc51_B_goto(uint8_t step_no)
+uint8_t jxc51_B_goto(uint8_t step_no)
 {
     if (step_no == STEP_REQ_NULL)
     {
@@ -714,6 +677,7 @@ unsigned char jxc51_B_goto(uint8_t step_no)
 
     if (step_no != jxc51_B_stored_step && !JXC51_B_BUSY)
     {
+        jxc51_setup_finish_flag = 0;
         jxc51_B_step_finish_flag = 0;
         jxc51_B_stored_step = step_no;
         JXC51_task_B_step(step_no, FLAG_START);
@@ -731,7 +695,7 @@ unsigned char jxc51_B_goto(uint8_t step_no)
 @name  jxc51_B_position
 @brief renew jxc51_position and return
  */
-unsigned char jxc51_B_position(void)
+uint8_t jxc51_B_position(void)
 {
     static uint8_t jxc51_position;
     jxc51_position = (JXC51_B_OUT2 * 4) + (JXC51_B_OUT1 * 2) + JXC51_B_OUT0;
@@ -739,31 +703,8 @@ unsigned char jxc51_B_position(void)
     return jxc51_position;
 }
 
-unsigned char jxc51_B_checkSTEP(void)
+uint8_t jxc51_B_check_step(void)
 {
-    // step over
-    if (jxc51_B_step_finish_flag == 0)
-    {
-        if (JXC51_B_INP && (jxc51_B_position() == jxc51_B_stored_step))
-        {
-            jxc51_B_step_finish_flag = 1;
-        }
-    }
-
     return jxc51_B_step_finish_flag;
-}
-
-unsigned char jxc51_B_checkSETUP(void)
-{
-    // setup over
-    if (jxc51_setup_finish_flag == 0)
-    {
-        if (JXC51_B_INP && (jxc51_B_position() == 0))
-        {
-            jxc51_setup_finish_flag = 1;
-        }
-    }
-
-    return jxc51_setup_finish_flag;
 }
 #endif
