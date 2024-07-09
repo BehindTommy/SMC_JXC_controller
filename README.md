@@ -1,3 +1,6 @@
+# Watch out
+The project has not been tested and problems exist.
+
 # SMC_JXC_Controller
 
 This repository provides a simple interface for controlling SMC devices such as LECP6, LECA6, JXC51, and JXC61 using Parallel I/O. 
@@ -8,7 +11,7 @@ Additionally, the project includes support for an I/O expansion board based on I
 
 ## Environment
 
-I do my work on a PIC16 microcontroller using MPLAB IDE. I believe he design should be easily adapted to other platforms.
+I do my work on a PIC16 microcontroller using MPLAB IDE. I believe the design should be easily adapted to other platforms.
 
 ## How to use
 
