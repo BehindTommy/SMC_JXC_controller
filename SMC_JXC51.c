@@ -63,7 +63,7 @@ struct
     unsigned in1 : 1;   // OUT7
     unsigned in0 : 1;   // OUT8
 } jxc51_expand_in;
-unsigned char *jxc51_in_data = (unsigned char *)&jxc51_expand_in;
+uint8_t *jxc51_in_data = (unsigned char *)&jxc51_expand_in;
 
 struct
 {
@@ -76,7 +76,7 @@ struct
     unsigned svre : 1;  // IN7
     unsigned alarm : 1; // IN8
 } jxc51_expand_out;
-unsigned char *jxc51_out_data = (unsigned char *)&jxc51_expand_out;
+uint8_t *jxc51_out_data = (unsigned char *)&jxc51_expand_out;
 
 // JXC51_A_input
 #define JXC51_A_IN0 jxc51_expand_in.in0     // OUT 8
@@ -167,6 +167,7 @@ static uint8_t JXC51_task_A_step(uint8_t input, uint8_t flag)
     static enum { step_null = 0,
                   step_ready,
                   step_start,
+                //   step_wait_SVON,
                   step_DRIVEon,
                   step_checkBUSY,
                   step_waitBUSY,
@@ -215,9 +216,18 @@ static uint8_t JXC51_task_A_step(uint8_t input, uint8_t flag)
         }
         break;
     case step_start:
+        JXC51_A_SETUP = 0; 
+        JXC51_A_HOLD = 0;  
+        JXC51_A_DRIVE = 0; 
+        JXC51_A_RESET = 0; 
         JXC51_A_SVON = 1; // SVON = 1;
+        // step_FSM_state = step_wait_SVON;
         step_FSM_state = step_DRIVEon;
         break;
+    // case step_wait_SVON:
+    //     // do nothing, wait for I2C (if have) to take affect.
+    //     step_FSM_state = step_DRIVEon;
+    //     break;
     case step_DRIVEon:
         if (!JXC51_A_SVRE)
         {
@@ -229,6 +239,7 @@ static uint8_t JXC51_task_A_step(uint8_t input, uint8_t flag)
         }
         break;
     case step_checkBUSY:
+        JXC51_A_DRIVE = 0; // DRIVE = 0;
         if (!JXC51_A_BUSY)
         {
         } // wait until BUSY = 0;
@@ -236,7 +247,6 @@ static uint8_t JXC51_task_A_step(uint8_t input, uint8_t flag)
         {
             step_FSM_state = step_waitBUSY;
         }
-        JXC51_A_DRIVE = 0; // DRIVE = 0;
         break;
     case step_waitBUSY:
         if ((!JXC51_A_BUSY) == 0)
@@ -245,12 +255,12 @@ static uint8_t JXC51_task_A_step(uint8_t input, uint8_t flag)
         else
         {
             //                output = PORTB & 0x1F + JXC51_A_OUT5 * 0x20;
-            jxc51_A_step_finish_flag = 1;
             step_FSM_state = step_end;
             //                JXC51_A_SVON = 0;
         }
         break;
     case step_end:
+        jxc51_A_step_finish_flag = 1;
         step_FSM_state = step_ready;
         break;
 
@@ -271,18 +281,19 @@ static uint8_t JXC51_task_A_step(uint8_t input, uint8_t flag)
  */
 static uint8_t JXC51_task_B_step(uint8_t input, uint8_t flag)
 {
-    static enum { step_null = 0,
-                  step_ready,
-                  step_start,
-                  step_DRIVEon,
-                  step_checkBUSY,
-                  step_waitBUSY,
-                  step_end } step_FSM_state;
+    static enum { b_step_null = 0,
+                  b_step_ready,
+                  b_step_start,
+                //   b_step_wait_SVON,
+                  b_step_DRIVEon,
+                  b_step_checkBUSY,
+                  b_step_waitBUSY,
+                  b_step_end } b_step_FSM_state;
 
     uint8_t err = 0;
     if (flag == FLAG_RESET)
     {
-        step_FSM_state = step_ready;
+        b_step_FSM_state = b_step_ready;
     }
     else
     {
@@ -308,63 +319,77 @@ static uint8_t JXC51_task_B_step(uint8_t input, uint8_t flag)
         // JXC51_B_IN5 = (input & 0x01);
     }
 
-    switch (step_FSM_state)
+    switch (b_step_FSM_state)
     {
-    case step_null:
+    case b_step_null:
         break;
-    case step_ready:
+    case b_step_ready:
         if (flag == FLAG_START)
         {
-            step_FSM_state = step_start;
+            
+            b_step_FSM_state = b_step_start;
         }
         else
         {
         }
         break;
-    case step_start:
+    case b_step_start:
+        JXC51_B_SETUP = 0; 
+        JXC51_B_HOLD = 0;  
+        JXC51_B_DRIVE = 0; 
+        JXC51_B_RESET = 0; 
         JXC51_B_SVON = 1; // SVON = 1;
-        step_FSM_state = step_DRIVEon;
+        // b_step_FSM_state = step_wait_SVON;
+        b_step_FSM_state = b_step_DRIVEon;
         break;
-    case step_DRIVEon:
+    // case step_wait_SVON:
+    //     // do nothing, wait for I2C (if have) to take affect.
+    //     b_step_FSM_state = b_step_DRIVEon;
+    //     break;
+    case b_step_DRIVEon:
         if (!JXC51_B_SVRE)
         {
         }
         else
         {
             JXC51_B_DRIVE = 1; // DRIVE = 1;
-            step_FSM_state = step_checkBUSY;
+            b_step_FSM_state = b_step_checkBUSY;
         }
         break;
-    case step_checkBUSY:
+    case b_step_checkBUSY:
         if (!JXC51_B_BUSY)
         {
+            JXC51_B_DRIVE = 1; // DRIVE = 1;
         } // wait until BUSY = 0;
         else
         {
-            step_FSM_state = step_waitBUSY;
+            JXC51_B_DRIVE = 0; // DRIVE = 0;
+            b_step_FSM_state = b_step_waitBUSY;
         }
-        JXC51_B_DRIVE = 0; // DRIVE = 0;
         break;
-    case step_waitBUSY:
+    case b_step_waitBUSY:
         if (!JXC51_B_BUSY == 0)
         {
         } // wait until BUSY = 1;
         else
         {
             // output = PORTB & 0x1F + JXC51_B_OUT5 * 0x20;
-            jxc51_B_step_finish_flag = 1;
-            step_FSM_state = step_end;
+            b_step_FSM_state = b_step_end;
             // JXC51_B_SVON = 0;
         }
         break;
-    case step_end:
-        step_FSM_state = step_ready;
+    case b_step_end:
+        jxc51_B_step_finish_flag = 1;
+        JXC51_B_IN0 = 0;
+        b_step_FSM_state = b_step_ready;
         break;
 
     default:
-        step_FSM_state = step_null;
+        b_step_FSM_state = b_step_null;
         break;
     }
+    
+    NOP();
     return err;
 }
 #endif
@@ -505,6 +530,7 @@ static uint8_t JXC51_task_AB_setup(uint8_t flag)
             setup_FSM_state = setup_start;
         }
         break;
+        /* TODO: add some wait and see if the start setup after power down can be more smooth */
     case setup_start:
         if (!JXC51_A_SVRE) // wait until SVRE = 1;
         {
@@ -542,24 +568,6 @@ static uint8_t JXC51_task_AB_setup(uint8_t flag)
     return setup_FSM_state;
 }
 
-void taskJXC51(void)
-{
-#ifdef __USE_IO_EXPAND__
-    JXC51_A_READ();
-#endif
-
-    // advance the setup and step progress (if have)
-    JXC51_task_AB_setup(FLAG_RUN);
-    JXC51_task_A_step(STEP_REQ_NULL, FLAG_RUN);
-#ifdef __USE_JXC51_B__
-    JXC51_task_B_setup(FLAG_RUN);
-    JXC51_task_B_step(STEP_REQ_NULL, FLAG_RUN);
-#endif
-
-#ifdef __USE_IO_EXPAND__
-    JXC51_A_APPLY();
-#endif
-}
 
 uint8_t jxc51_init(void)
 {
@@ -708,3 +716,22 @@ uint8_t jxc51_B_check_step(void)
     return jxc51_B_step_finish_flag;
 }
 #endif
+
+void taskJXC51(void)
+{
+#ifdef __USE_IO_EXPAND__
+    JXC51_A_READ();
+#endif
+
+    // advance the setup and step progress (if have)
+    JXC51_task_AB_setup(FLAG_RUN);
+    JXC51_task_A_step(STEP_REQ_NULL, FLAG_RUN);
+#ifdef __USE_JXC51_B__
+    JXC51_task_B_setup(FLAG_RUN);
+    JXC51_task_B_step(STEP_REQ_NULL, FLAG_RUN);
+#endif
+
+#ifdef __USE_IO_EXPAND__
+    JXC51_A_APPLY();
+#endif
+}
