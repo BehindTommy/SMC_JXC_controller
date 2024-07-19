@@ -63,7 +63,7 @@ struct
     unsigned in1 : 1;   // OUT7
     unsigned in0 : 1;   // OUT8
 } jxc51_expand_in;
-uint8_t *jxc51_in_data = (unsigned char *)&jxc51_expand_in;
+uint8_t *jxc51_in_data = (uint8_t *)&jxc51_expand_in;
 
 struct
 {
@@ -76,7 +76,7 @@ struct
     unsigned svre : 1;  // IN7
     unsigned alarm : 1; // IN8
 } jxc51_expand_out;
-uint8_t *jxc51_out_data = (unsigned char *)&jxc51_expand_out;
+uint8_t *jxc51_out_data = (uint8_t *)&jxc51_expand_out;
 
 // JXC51_A_input
 #define JXC51_A_IN0 jxc51_expand_in.in0     // OUT 8
@@ -133,9 +133,9 @@ uint8_t *jxc51_out_data = (unsigned char *)&jxc51_expand_out;
 #define FLAG_RUN 3
 
 static uint8_t jxc51_setup_finish_flag;
-static uint8_t jxc51_A_stored_step;
+static uint8_t jxc51_A_stored_step=0xFF;
 #ifdef __USE_JXC51_B__
-static uint8_t jxc51_B_stored_step;
+static uint8_t jxc51_B_stored_step=0xFF;
 #endif
 static uint8_t jxc51_A_step_finish_flag;
 #ifdef __USE_JXC51_B__
@@ -380,7 +380,6 @@ static uint8_t JXC51_task_B_step(uint8_t input, uint8_t flag)
         break;
     case b_step_end:
         jxc51_B_step_finish_flag = 1;
-        JXC51_B_IN0 = 0;
         b_step_FSM_state = b_step_ready;
         break;
 
@@ -618,7 +617,7 @@ uint8_t jxc51_A_goto(uint8_t step_no)
 {
     if (step_no == STEP_REQ_NULL)
     {
-        jxc51_A_stored_step = 0;
+        jxc51_A_stored_step = 0xFF;
         return 0;
     }
 
@@ -641,6 +640,11 @@ uint8_t jxc51_A_goto(uint8_t step_no)
 uint8_t jxc51_check_setup(void)
 {
     return jxc51_setup_finish_flag;
+}
+
+uint8_t jxc51_A_check_alarm(void)
+{
+    return JXC51_A_ALARM;
 }
 
 uint8_t jxc51_A_position(void)
@@ -679,7 +683,7 @@ uint8_t jxc51_B_goto(uint8_t step_no)
 {
     if (step_no == STEP_REQ_NULL)
     {
-        jxc51_B_stored_step = 0;
+        jxc51_B_stored_step = 0xFF;
         return 0;
     }
 
@@ -715,6 +719,11 @@ uint8_t jxc51_B_check_step(void)
 {
     return jxc51_B_step_finish_flag;
 }
+
+uint8_t jxc51_B_check_alarm(void)
+{
+    return JXC51_B_ALARM;
+}
 #endif
 
 void taskJXC51(void)
@@ -735,3 +744,4 @@ void taskJXC51(void)
     JXC51_A_APPLY();
 #endif
 }
+

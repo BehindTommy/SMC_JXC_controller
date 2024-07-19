@@ -15,12 +15,8 @@
 extern "C"
 {
 #endif
-    /* @name    -taskJXC51
-     * @brief   -This function is the whole control of all other function, therefore it should be called periodicity.
-                too long or too short period will cause problem. Recommended period is 20hz(50ms between each call).
-                Stop calling this function will disable most function, but unexpected error could appear.
-    */
-    void taskJXC51(void);
+
+
     
     /* 
      * @name    jxc51_init
@@ -96,8 +92,20 @@ extern "C"
      * @brief same as jxc51_A_check_step, but for controller B.
      */
     uint8_t jxc51_B_check_step(void);
+
+    /*
+     * @name 
+     * @brief 
+     */
+    uint8_t jxc51_B_check_alarm(void);
 #endif
 
+    /* @name    -taskJXC51
+     * @brief   -This function is the whole control of all other function, therefore it should be called periodicity.
+                too long or too short period will cause problem. Recommended period is 20hz(50ms between each call).
+                Stop calling this function will disable most function, but unexpected error could appear.
+    */
+    void taskJXC51(void);
 
 #ifdef __cplusplus
 }
