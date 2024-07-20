@@ -1,6 +1,3 @@
-# Watch out
-The project has not been tested and problems exist.
-
 # SMC_JXC_Controller
 
 This repository provides a simple interface for controlling SMC devices such as LECP6, LECA6, JXC51, and JXC61 using Parallel I/O. 
